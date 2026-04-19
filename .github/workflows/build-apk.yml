@@ -38,7 +38,9 @@ jobs:
         run: npx cap sync android
 
       - name: Generate NavRo app icon
-        run: python3 resources/make_icon.py
+        run: |
+          pip install Pillow --quiet
+          python3 resources/make_icon.py
 
       - name: Build Debug APK
         run: |
