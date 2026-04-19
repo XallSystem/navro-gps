@@ -1,0 +1,10 @@
+{
+  "appId": "com.navro.gps",
+  "appName": "NavRo",
+  "webDir": "src",
+  "plugins": {
+    "SplashScreen": {"launchShowDuration": 1500, "launchAutoHide": true, "backgroundColor": "#1565C0"},
+    "App": {"url": "navro://"}
+  },
+  "server": {"allowNavigation": ["*"]}
+}
