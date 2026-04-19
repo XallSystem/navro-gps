@@ -38,6 +38,7 @@
   --overlay: rgba(240,244,255,0.92);
   --modal-bg: rgba(0,0,0,0.55);
 }
+html,body{background:#0D2E7A;margin:0;padding:0}
 /* ===== DARK THEME ===== */
 [data-dark="1"] {
   --primary: #64B5F6;
@@ -111,7 +112,7 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Segoe UI',Roboto,A
 .lang-circles::before{content:'';position:absolute;width:320px;height:320px;border-radius:50%;background:rgba(255,255,255,.05);top:-100px;right:-80px}
 .lang-circles::after{content:'';position:absolute;width:240px;height:240px;border-radius:50%;background:rgba(255,255,255,.04);bottom:40px;left:-70px}
 .lang-hero{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:40px 20px;position:relative;z-index:1}
-.lang-logo{width:108px;height:108px;margin-bottom:12px;border-radius:24px;box-shadow:0 6px 24px rgba(0,0,0,.4);object-fit:contain}
+.lang-logo{width:110px;height:110px;margin-bottom:14px;filter:drop-shadow(0 6px 20px rgba(0,0,0,.45))}
 .lang-title{color:#fff;font-size:44px;font-weight:900;margin-bottom:4px;letter-spacing:2px;text-shadow:0 3px 10px rgba(0,0,0,.3)}
 .lang-tagline{color:rgba(255,255,255,.65);font-size:13px;margin-bottom:8px;letter-spacing:.5px}
 .lang-subtitle{color:rgba(255,255,255,.82);font-size:14px;margin-bottom:44px;text-align:center;line-height:1.6}
@@ -222,14 +223,14 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Segoe UI',Roboto,A
 <div class="screen" id="langScreen">
   <div class="lang-circles"></div>
   <div class="lang-hero">
-    <img class="lang-logo" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E %3Cdefs%3E %3ClinearGradient id=%22bg%22 x1=%220%%22 y1=%220%%22 x2=%22100%%22 y2=%22100%%22%3E %3Cstop offset=%220%%22 stop-color=%22#0D2E7A%22/%3E %3Cstop offset=%22100%%22 stop-color=%22#0288D1%22/%3E %3C/linearGradient%3E %3ClinearGradient id=%22pin%22 x1=%220%%22 y1=%220%%22 x2=%220%%22 y2=%22100%%22%3E %3Cstop offset=%220%%22 stop-color=%22#FF5252%22/%3E %3Cstop offset=%22100%%22 stop-color=%22#C62828%22/%3E %3C/linearGradient%3E %3C/defs%3E %3Crect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22url(#bg)%22/%3E %3Cellipse cx=%2250%22 cy=%2280%22 rx=%2238%22 ry=%2216%22 fill=%22#2E7D32%22 opacity=%220.85%22/%3E %3Crect x=%2245%22 y=%2262%22 width=%2210%22 height=%2222%22 fill=%22#546E7A%22 opacity=%220.8%22/%3E %3Crect x=%2225%22 y=%2262%22 width=%2250%22 height=%225%22 fill=%22#78909C%22 opacity=%220.7%22/%3E %3Cline x1=%2250%22 y1=%2262%22 x2=%2250%22 y2=%2284%22 stroke=%22white%22 stroke-width=%221.5%22 stroke-dasharray=%223,3%22 opacity=%220.8%22/%3E %3Ccircle cx=%2250%22 cy=%2238%22 r=%2217%22 fill=%22url(#pin)%22 stroke=%22white%22 stroke-width=%223%22/%3E %3Ccircle cx=%2250%22 cy=%2238%22 r=%227%22 fill=%22white%22/%3E %3Cpolygon points=%2250,57 42,46 58,46%22 fill=%22url(#pin)%22/%3E %3Cpolygon points=%2280,12 82,18 88,18 83,22 85,28 80,24 75,28 77,22 72,18 78,18%22 fill=%22#FFD600%22/%3E %3C/svg%3E" alt="NavRo"/>
+    <svg class="lang-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="NavRo"><defs><linearGradient id="nvBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1565C0"/><stop offset="100%" stop-color="#0288D1"/></linearGradient></defs><rect width="100" height="100" rx="20" fill="url(#nvBg)"/><ellipse cx="50" cy="90" rx="48" ry="22" fill="#2E7D32"/><ellipse cx="50" cy="87" rx="48" ry="20" fill="#388E3C"/><rect x="46" y="62" width="8" height="28" fill="#ECEFF1" opacity="0.9"/><rect x="20" y="62" width="60" height="6" fill="#B0BEC5" opacity="0.8"/><circle cx="50" cy="36" r="18" fill="#E53935" stroke="white" stroke-width="3"/><circle cx="50" cy="36" r="7" fill="white"/><polygon points="50,57 41,46 59,46" fill="#E53935"/><polygon points="82,8 84,15 91,15 85,19 88,26 82,22 76,26 79,19 73,15 80,15" fill="#FFD600"/><text x="50" y="80" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="9" fill="white">NavRo</text></svg>
     <div class="lang-title">NavRo</div>
     <div class="lang-tagline">GPS Navigator</div>
-    <div class="lang-subtitle">Alege\u021bi limba / Choose language<br>Choisissez la langue</div>
+    <div class="lang-subtitle">Alege&#x21B;i limba / Choose language<br>Choisissez la langue</div>
     <div class="lang-grid">
       <div class="lang-card" onclick="setLanguage('ro')">
         <span class="flag">&#x1F1F7;&#x1F1F4;</span>
-        <span class="lang-name">Rom\u00e2n\u0103</span>
+        <span class="lang-name">Rom&#xE2;n&#x103;</span>
       </div>
       <div class="lang-card" onclick="setLanguage('en')">
         <span class="flag">&#x1F1EC;&#x1F1E7;</span>
@@ -237,7 +238,7 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Segoe UI',Roboto,A
       </div>
       <div class="lang-card" onclick="setLanguage('fr')">
         <span class="flag">&#x1F1EB;&#x1F1F7;</span>
-        <span class="lang-name">Fran\u00e7ais</span>
+        <span class="lang-name">Fran&#xE7;ais</span>
       </div>
     </div>
     <div class="lang-version">V1.0.1</div>
