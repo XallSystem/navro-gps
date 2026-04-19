@@ -37,6 +37,9 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Generate NavRo app icon
+        run: python3 resources/make_icon.py
+
       - name: Build Debug APK
         run: |
           cd android
@@ -48,6 +51,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NavRo-GPS-debug
+          name: navro-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 90
