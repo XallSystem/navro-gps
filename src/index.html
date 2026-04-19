@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>NavRo â Navigare GPS</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<style>
+  :root {
+    --primary: #1565C0;
+    --primary-dark: #0D47A1;
+    --accent: #FF6F00;
+    --accent-dark: #E65100;
+    --bg: #F5F7FA;
+    --card: #FFFFFF;
+    --text: #212121;
+    --text-light: #757575;
+    --border: #E0E0E0;
+    --success: #2E7D32;
+    --danger: #C62828;
+    --radius: 12px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.12);
+    --shadow-lg: 0 4px 24px rgba(0,0,0,0.18);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+
+  /* ===== SCREENS ===== */
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); z-index: 10; overflow-y: auto; transition: opacity 0.25s; }
+  .screen.hidden { display: none; }
+
+  /* ===== HEADER ===== */
+  .app-header { background: var(--primary); color: #fff; padding: 16px 20px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow); min-height: 60px; }
+  .app-header h1 { font-size: 20px; font-weight: 700; flex: 1; }
+  .app-header .lang-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .app-header .lang-btn:hover { background: rgba(255,255,255,0.3); }
+
+  /* ===== CARDS ===== */
+  .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin: 12px 16px; }
+  .card h2 { font-size: 17px; font-weight: 700; margin-bottom: 14px; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+
+  /* ===== FORM ELEMENTS ===== */
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-light); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-control { width: 100%; padding: 13px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 16px; background: var(--card); color: var(--text); transition: border-color 0.2s; outline: none; }
+  .form-control:focus { border-color: var(--primary); }
+  .form-control.plate { text-transform: uppercase; letter-spacing: 2px; font-weight: 700; font-size: 18px; }
+
+  /* ===== BUTTONS ===== */
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 15px; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-accent:hover { background: var(--accent-dark); transform: translateY(-1px); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
+  .btn-outline:hover { background: var(--primary); color: #fff; }
+  .btn-sm { padding: 10px 16px; font-size: 14px; width: auto; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ===== LANGUAGE SCREEN ===== */
+  #langScreen { background: var(--primary); }
+  .lang-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 40px 20px; }
+  .lang-logo { font-size: 64px; margin-bottom: 16px; }
+  .lang-title { color: #fff; font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+  .lang-subtitle { color: rgba(255,255,255,0.75); font-size: 15px; margin-bottom: 40px; text-align: center; }
+  .lang-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 340px; }
+  .lang-card { background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: var(--radius); padding: 20px 12px; cursor: pointer; text-align: center; color: #fff; transition: all 0.2s; }
+  .lang-card:hover, .lang-card.active { background: rgba(255,255,255,0.3); border-color: #fff; transform: scale(1.04); }
+  .lang-card .flag { font-size: 32px; display: block; margin-bottom: 8px; }
+  .lang-card .lang-name { font-size: 13px; font-weight: 700; }
+
+  /* ===== SEARCH ===== */
+  .search-container { position: relative; }
+  .search-container .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-light); font-size: 16px; }
+  .search-container .form-control { padding-left: 42px; }
+  #destinationList { max-height: 280px; overflow-y: auto; border: 2px solid var(--border); border-radius: 10px; background: var(--card); display: none; }
+  #destinationList.visible { display: block; }
+  .dest-item { padding: 13px 16px; cursor: pointer; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; transition: background 0.15s; }
+  .dest-item:last-child { border-bottom: none; }
+  .dest-item:hover, .dest-item.selected { background: #E3F2FD; }
+  .dest-item .dest-icon { color: var(--accent); font-size: 16px; flex-shrink: 0; }
+  .dest-item .dest-name { font-weight: 600; font-size: 15px; }
+  .dest-item .dest-coords { font-size: 12px; color: var(--text-light); }
+  .no-results { padding: 16px; text-align: center; color: var(--text-light); font-size: 14px; }
+
+  /* ===== STATUS BADGES ===== */
+  .status-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .badge-ok { background: #E8F5E9; color: var(--success); }
+  .badge-warn { background: #FFF8E1; color: #F57F17; }
+  .badge-err { background: #FFEBEE; color: var(--danger); }
+  .badge-info { background: #E3F2FD; color: var(--primary); }
+
+  /* ===== INFO BOXES ===== */
+  .info-box { background: #E3F2FD; border-left: 4px solid var(--primary); border-radius: 8px; padding: 12px 14px; font-size: 14px; color: var(--primary-dark); margin-bottom: 12px; }
+  .warn-box { background: #FFF8E1; border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: 14px; color: #5D4037; margin-bottom: 12px; }
+
+  /* ===== MAP SCREEN ===== */
+  #mapScreen { padding: 0; }
+  #map { flex: 1; width: 100%; min-height: 0; }
+  .map-topbar { background: var(--primary); color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 10px; z-index: 100; box-shadow: var(--shadow); }
+  .map-topbar .back-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .map-topbar .route-info { flex: 1; }
+  .map-topbar .dest-label { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .map-topbar .route-stats { font-size: 12px; opacity: 0.85; }
+  .map-bottombar { background: var(--card); padding: 14px 16px; box-shadow: 0 -2px 12px rgba(0,0,0,0.1); z-index: 100; }
+  .map-action-row { display: flex; gap: 10px; }
+  .recenter-btn { position: fixed; right: 16px; bottom: 100px; background: var(--card); border: none; width: 48px; height: 48px; border-radius: 50%; box-shadow: var(--shadow-lg); cursor: pointer; font-size: 20px; color: var(--primary); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+
+  /* ===== MODAL ===== */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9000; display: flex; align-items: flex-end; justify-content: center; }
+  .modal-overlay.hidden { display: none; }
+  .modal-sheet { background: var(--card); border-radius: 20px 20px 0 0; padding: 24px 20px 36px; width: 100%; max-width: 500px; }
+  .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 8px; color: var(--text); }
+  .modal-text { font-size: 14px; color: var(--text-light); margin-bottom: 20px; line-height: 1.5; }
+  .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ===== SETTINGS ===== */
+  .settings-group { margin-bottom: 6px; }
+  .settings-label { font-size: 12px; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; display: block; }
+  .settings-hint { font-size: 11px; color: var(--text-light); margin-top: 3px; font-style: italic; }
+  .section-divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  /* ===== SPINNER ===== */
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.85); z-index: 8000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  .loading-overlay.hidden { display: none; }
+  .loading-overlay .spin-big { width: 48px; height: 48px; border: 5px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  .loading-text { font-size: 15px; font-weight: 600; color: var(--primary); }
+
+  /* ===== SCROLLABLE SECTIONS ===== */
+  .scroll-content { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+
+  /* ===== TOAST ===== */
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #323232; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 9999; opacity: 0; transition: opacity 0.3s; max-width: 85vw; text-align: center; }
+  .toast.show { opacity: 1; }
+
+  /* ===== ARRIVAL PULSE ===== */
+  @keyframes pulse-ring {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+  .arrived-icon { position: relative; display: inline-block; }
+  .arrived-icon::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    background: rgba(46, 125, 50, 0.3);
+    animation: pulse-ring 1.5s infinite;
+  }
+
+  /* ===== NAVIGATION COMPASS ===== */
+  .nav-compass { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+  .nav-compass .compass-arrow { font-size: 28px; color: var(--accent); }
+  .nav-compass .nav-text { font-size: 16px; font-weight: 700; color: var(--text); }
+
+  @media (min-width: 480px) {
+    .card { margin: 16px auto; max-width: 480px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- LOADING OVERLAY -->
+<!-- ============================================================ -->
+<div class="loading-overlay hidden" id="loadingOverlay">
+  <div class="spin-big"></div>
+  <div class="loading-text" id="loadingText">Se Ã®ncarcÄ...</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TOAST -->
+<!-- ============================================================ -->
+<div class="toast" id="toast"></div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 1 â LANGUAGE SELECTION -->
+<!-- ============================================================ -->
+<div class="screen" id="langScreen">
+  <div class="lang-hero">
+    <div class="lang-logo">ð§­</div>
+    <div class="lang-title">NavRo</div>
+    <div class="lang-subtitle">AlegeÈi limba / Choose language / Choisissez la langue</div>
+    <div class="lang-grid">
+      <div class="lang-card" onclick="setLanguage('ro')">
+        <span class="flag">ð·ð´</span>
+        <span class="lang-name">RomÃ¢nÄ</span>
+      </div>
+      <div class="lang-card" onclick="setLanguage('en')">
+        <span class="flag">ð¬ð§</span>
+        <span class="lang-name">English</span>
+      </div>
+      <div class="lang-card" onclick="setLanguage('fr')">
+        <span class="flag">ð«ð·</span>
+        <span class="lang-name">FranÃ§ais</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 2 â PLATE INPUT -->
+<!-- ============================================================ -->
+<div class="screen hidden" id="plateScreen">
+  <div class="app-header">
+    <h1 id="plateHeader">Identificare vehicul</h1>
+    <button class="lang-btn" onclick="goToLang()" title="SchimbÄ limba">ð</button>
+  </div>
+  <div class="scroll-content">
+    <div class="card">
+      <h2><i class="fa fa-car"></i> <span id="plateTitle">Date vehicul</span></h2>
+      <div class="form-group">
+        <label id="plateAutoLabel">Nr. Ã®nmatriculare auto</label>
+        <input class="form-control plate" id="plateAuto" type="text" placeholder="AB 12 ABC" maxlength="10" autocomplete="off" autocapitalize="characters"/>
+      </div>
+      <div class="form-group">
+        <label id="plateTrailerLabel">Nr. Ã®nmatriculare remorcÄ (opÈional)</label>
+        <input class="form-control plate" id="plateTrailer" type="text" placeholder="AB 12 ABC" maxlength="10" autocomplete="off" autocapitalize="characters"/>
+      </div>
+      <button class="btn btn-primary" onclick="savePlates()" id="plateContinueBtn">
+        <i class="fa fa-arrow-right"></i> <span id="plateContinueText">ContinuÄ</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 3 â DESTINATION SEARCH -->
+<!-- ============================================================ -->
+<div class="screen hidden" id="searchScreen">
+  <div class="app-header">
+    <h1 id="searchHeader">Selectare destinaÈie</h1>
+    <div style="display:flex;gap:6px">
+      <button class="lang-btn" onclick="goToSettings()" title="SetÄri"><i class="fa fa-gear"></i></button>
+      <button class="lang-btn" onclick="goToLang()">ð</button>
+    </div>
+  </div>
+  <div class="scroll-content">
+    <!-- Vehicle info badge -->
+    <div style="padding: 8px 16px 0;">
+      <div class="status-row" id="vehicleBadges"></div>
+    </div>
+
+    <!-- CSV Status -->
+    <div class="card">
+      <h2><i class="fa fa-database"></i> <span id="dataSourceTitle">SursÄ date</span></h2>
+      <div class="status-row" id="csvStatusBadge"></div>
+      <button class="btn btn-outline btn-sm" onclick="reloadCSV()" id="reloadBtn" style="width:auto">
+        <i class="fa fa-refresh"></i> <span id="reloadText">ReÃ®ncarcÄ lista</span>
+      </button>
+    </div>
+
+    <!-- Search -->
+    <div class="card">
+      <h2><i class="fa fa-search"></i> <span id="searchTitle">CautÄ destinaÈie</span></h2>
+      <div class="form-group">
+        <div class="search-container">
+          <i class="fa fa-search search-icon"></i>
+          <input class="form-control" id="searchInput" type="text" placeholder="IntroduceÈi denumirea..." autocomplete="off" oninput="filterDestinations(this.value)"/>
+        </div>
+      </div>
+      <div id="destinationList"></div>
+    </div>
+
+    <!-- Manual GPS input -->
+    <div class="card">
+      <h2><i class="fa fa-map-pin"></i> <span id="manualTitle">Coordonate manuale</span></h2>
+      <div class="form-group">
+        <label id="manualNameLabel">Denumire destinaÈie</label>
+        <input class="form-control" id="manualName" type="text" placeholder="Ex: Depozit central"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group">
+          <label>Lat</label>
+          <input class="form-control" id="manualLat" type="number" step="0.000001" placeholder="45.000000"/>
+        </div>
+        <div class="form-group">
+          <label>Lng</label>
+          <input class="form-control" id="manualLng" type="number" step="0.000001" placeholder="25.000000"/>
+        </div>
+      </div>
+      <button class="btn btn-accent" onclick="useManualCoords()" id="manualGoBtn">
+        <i class="fa fa-route"></i> <span id="manualGoBtnText">CalculeazÄ ruta</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 4 â ROUTE PREVIEW -->
+<!-- ============================================================ -->
+<div class="screen hidden" id="routeScreen">
+  <div class="app-header">
+    <h1 id="routeHeader">RutÄ calculatÄ</h1>
+    <button class="lang-btn" onclick="goToSearch()">â</button>
+  </div>
+  <div class="scroll-content">
+    <div class="card">
+      <h2><i class="fa fa-flag-checkered"></i> <span id="routeDestLabel">DestinaÈie</span></h2>
+      <div style="font-size:18px;font-weight:700;color:var(--accent);margin-bottom:8px" id="routeDestName"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:11px;color:var(--text-light);font-weight:700;text-transform:uppercase;margin-bottom:4px" id="routeDistLabel">DistanÈÄ</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary)" id="routeDistance">â</div>
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:11px;color:var(--text-light);font-weight:700;text-transform:uppercase;margin-bottom:4px" id="routeTimeLabel">DuratÄ estimatÄ</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary)" id="routeDuration">â</div>
+        </div>
+      </div>
+      <div class="info-box" id="routeInfoBox">
+        Ruta a fost calculatÄ. ConfirmaÈi pentru a Ã®ncepe navigarea.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-success" onclick="startNavigation()" id="startNavBtn">
+          <i class="fa fa-play"></i> <span id="startNavText">PorneÈte navigarea</span>
+        </button>
+        <button class="btn btn-outline" onclick="goToSearch()" id="backSearchBtn">
+          <i class="fa fa-arrow-left"></i> <span id="backSearchText">Ãnapoi la cÄutare</span>
+        </button>
+      </div>
+    </div>
+    <!-- Mini map preview -->
+    <div class="card" style="padding:0;overflow:hidden;min-height:220px">
+      <div id="previewMap" style="width:100%;height:220px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 5 â NAVIGATION (MAP) -->
+<!-- ============================================================ -->
+<div class="screen hidden" id="mapScreen">
+  <div class="map-topbar">
+    <button class="back-btn" onclick="stopNavigation()"><i class="fa fa-arrow-left"></i></button>
+    <div class="route-info">
+      <div class="dest-label" id="navDestName">DestinaÈie</div>
+      <div class="route-stats" id="navStats">Se calculeazÄ...</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+      <div style="font-size:11px;opacity:0.8" id="navPlate1"></div>
+      <div style="font-size:11px;opacity:0.8" id="navPlate2"></div>
+    </div>
+  </div>
+  <div id="map"></div>
+  <button class="recenter-btn" onclick="recenterMap()" title="CentreazÄ"><i class="fa fa-crosshairs"></i></button>
+  <div class="map-bottombar">
+    <div class="map-action-row">
+      <button class="btn btn-accent" onclick="showArrivalConfirm()" id="arrivalBtn">
+        <i class="fa fa-check-circle"></i> <span id="arrivalBtnText">Am ajuns!</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 6 â SETTINGS -->
+<!-- ============================================================ -->
+<div class="screen hidden" id="settingsScreen">
+  <div class="app-header">
+    <button class="lang-btn" onclick="goToSearch()" style="margin-right:8px"><i class="fa fa-arrow-left"></i></button>
+    <h1 id="settingsHeader">SetÄri</h1>
+    <button class="lang-btn" onclick="goToLang()">ð</button>
+  </div>
+  <div class="scroll-content">
+    <div class="card">
+      <h2><i class="fa fa-link"></i> <span id="settingsUrlTitle">URL-uri configurare</span></h2>
+
+      <div class="settings-group form-group">
+        <label class="settings-label" id="csvUrlLabel">URL lista destinaÈii (CSV)</label>
+        <input class="form-control" id="csvUrl" type="url" placeholder="https://exemplu.com/destinations.csv"/>
+        <div class="settings-hint" id="csvUrlHint">Format CSV: name,lat,lng (prima linie = header opÈional)</div>
+      </div>
+
+      <div class="settings-group form-group">
+        <label class="settings-label" id="overlayUrlLabel">URL overlay hartÄ (tile URL, opÈional)</label>
+        <input class="form-control" id="overlayTileUrl" type="url" placeholder="https://exemplu.com/tiles/{z}/{x}/{y}.png"/>
+        <div class="settings-hint" id="overlayUrlHint">URL template pentru tile-uri proprii (opÈional)</div>
+      </div>
+
+      <div class="settings-group form-group">
+        <label class="settings-label" id="geojsonUrlLabel">URL overlay GeoJSON (opÈional)</label>
+        <input class="form-control" id="geojsonUrl" type="url" placeholder="https://exemplu.com/overlay.geojson"/>
+        <div class="settings-hint" id="geojsonUrlHint">Strat vectorial GeoJSON suplimentar (opÈional)</div>
+      </div>
+
+      <div class="settings-group form-group">
+        <label class="settings-label" id="confirmUrlLabel">URL confirmare sosire</label>
+        <input class="form-control" id="confirmUrl" type="url" placeholder="https://exemplu.com/api/arrived"/>
+        <div class="settings-hint" id="confirmUrlHint">POST cu: destination, lat, lng, plate_auto, plate_trailer, timestamp</div>
+      </div>
+
+      <div class="settings-group form-group">
+        <label class="settings-label" id="osrmUrlLabel">URL server rutare OSRM</label>
+        <input class="form-control" id="osrmUrl" type="url" placeholder="https://router.project-osrm.org"/>
+        <div class="settings-hint" id="osrmUrlHint">Server OSRM pentru calculul rutelor</div>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <button class="btn btn-primary" onclick="saveSettings()">
+        <i class="fa fa-save"></i> <span id="saveSettingsText">SalveazÄ setÄrile</span>
+      </button>
+    </div>
+
+    <div class="card">
+      <h2><i class="fa fa-car"></i> <span id="settingsVehicleTitle">Vehicul</span></h2>
+      <div class="form-group">
+        <label id="settingsAutoLabel">Nr. Ã®nmatriculare auto</label>
+        <input class="form-control plate" id="settingsPlateAuto" type="text" maxlength="10" autocapitalize="characters"/>
+      </div>
+      <div class="form-group">
+        <label id="settingsTrailerLabel">Nr. Ã®nmatriculare remorcÄ</label>
+        <input class="form-control plate" id="settingsPlateTrailer" type="text" maxlength="10" autocapitalize="characters"/>
+      </div>
+      <button class="btn btn-outline" onclick="savePlatesFromSettings()">
+        <i class="fa fa-save"></i> <span id="savePlatesText">SalveazÄ vehicul</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL â ARRIVAL CONFIRMATION -->
+<!-- ============================================================ -->
+<div class="modal-overlay hidden" id="arrivalModal">
+  <div class="modal-sheet">
+    <div style="text-align:center;margin-bottom:16px">
+      <span style="font-size:56px" class="arrived-icon">â</span>
+    </div>
+    <div class="modal-title" id="arrivalModalTitle">AÈi ajuns la destinaÈie?</div>
+    <div class="modal-text" id="arrivalModalText">ConfirmaÈi cÄ aÈi ajuns la destinaÈie. Confirmarea va fi transmisÄ automat.</div>
+    <div id="arrivalDestInfo" style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:16px;font-size:14px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-success" onclick="confirmArrival()" id="confirmArrivalBtn">
+        <i class="fa fa-check"></i> <span id="confirmArrivalText">Confirm â Am ajuns!</span>
+      </button>
+      <button class="btn btn-outline" onclick="closeArrivalModal()" id="cancelArrivalBtn">
+        <i class="fa fa-times"></i> <span id="cancelArrivalText">Nu Ã®ncÄ, continuÄ</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL â ARRIVAL SENT -->
+<!-- ============================================================ -->
+<div class="modal-overlay hidden" id="arrivedSentModal">
+  <div class="modal-sheet">
+    <div style="text-align:center;margin-bottom:16px">
+      <span style="font-size:56px">ð</span>
+    </div>
+    <div class="modal-title" id="arrivedSentTitle">Confirmare trimisÄ!</div>
+    <div class="modal-text" id="arrivedSentText">Sosirea a fost confirmatÄ Èi transmisÄ cu succes.</div>
+    <div id="arrivedSentDetails" style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;color:var(--text-light)"></div>
+    <button class="btn btn-primary" onclick="finishRoute()" id="finishRouteBtn">
+      <i class="fa fa-home"></i> <span id="finishRouteBtnText">DestinaÈie nouÄ</span>
+    </button>
+  </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ================================================================
+// TRANSLATIONS
+// ================================================================
+const T = {
+  ro: {
+    plateHeader: "Identificare vehicul",
+    plateTitle: "Date vehicul",
+    plateAutoLabel: "Nr. Ã®nmatriculare auto",
+    plateTrailerLabel: "Nr. Ã®nmatriculare remorcÄ (opÈional)",
+    plateContinueText: "ContinuÄ",
+    searchHeader: "Selectare destinaÈie",
+    dataSourceTitle: "SursÄ date",
+    searchTitle: "CautÄ destinaÈie",
+    manualTitle: "Coordonate manuale",
+    manualNameLabel: "Denumire destinaÈie",
+    manualGoBtnText: "CalculeazÄ ruta",
+    reloadText: "ReÃ®ncarcÄ lista",
+    routeHeader: "RutÄ calculatÄ",
+    routeDestLabel: "DestinaÈie",
+    routeDistLabel: "DistanÈÄ",
+    routeTimeLabel: "DuratÄ estimatÄ",
+    routeInfoBox: "Ruta a fost calculatÄ. ConfirmaÈi pentru a Ã®ncepe navigarea.",
+    startNavText: "PorneÈte navigarea",
+    backSearchText: "Ãnapoi la cÄutare",
+    arrivalBtnText: "Am ajuns!",
+    settingsHeader: "SetÄri",
+    settingsUrlTitle: "URL-uri configurare",
+    csvUrlLabel: "URL lista destinaÈii (CSV)",
+    csvUrlHint: "Format CSV: name,lat,lng (prima linie = header opÈional)",
+    overlayUrlLabel: "URL overlay hartÄ (tile URL, opÈional)",
+    overlayUrlHint: "URL template pentru tile-uri proprii (opÈional)",
+    geojsonUrlLabel: "URL overlay GeoJSON (opÈional)",
+    geojsonUrlHint: "Strat vectorial GeoJSON suplimentar (opÈional)",
+    confirmUrlLabel: "URL confirmare sosire",
+    confirmUrlHint: "POST cu: destination, lat, lng, plate_auto, plate_trailer, timestamp",
+    osrmUrlLabel: "URL server rutare OSRM",
+    osrmUrlHint: "Server OSRM pentru calculul rutelor",
+    saveSettingsText: "SalveazÄ setÄrile",
+    settingsVehicleTitle: "Vehicul",
+    settingsAutoLabel: "Nr. Ã®nmatriculare auto",
+    settingsTrailerLabel: "Nr. Ã®nmatriculare remorcÄ",
+    savePlatesText: "SalveazÄ vehicul",
+    arrivalModalTitle: "AÈi ajuns la destinaÈie?",
+    arrivalModalText: "ConfirmaÈi cÄ aÈi ajuns la destinaÈie. Confirmarea va fi transmisÄ automat.",
+    confirmArrivalText: "Confirm â Am ajuns!",
+    cancelArrivalText: "Nu Ã®ncÄ, continuÄ",
+    arrivedSentTitle: "Confirmare trimisÄ!",
+    arrivedSentText: "Sosirea a fost confirmatÄ Èi transmisÄ cu succes.",
+    finishRouteBtnText: "DestinaÈie nouÄ",
+    loadingCSV: "Se descarcÄ lista destinaÈii...",
+    loadingRoute: "Se calculeazÄ ruta...",
+    loadingConfirm: "Se trimite confirmarea...",
+    errNoDest: "SelectaÈi sau introducei o destinaÈie.",
+    errNoPlate: "IntroduceÈi numÄrul de Ã®nmatriculare al autovehiculului.",
+    errNoRoute: "Nu s-a putut calcula ruta. VerificaÈi conexiunea.",
+    errNoCSV: "Nu s-a putut descÄrca lista. VerificaÈi URL-ul Ã®n setÄri.",
+    csvOK: "ListÄ Ã®ncÄrcatÄ",
+    csvErr: "Eroare CSV",
+    csvNone: "Nicio URL configuratÄ",
+    destCount: "destinaÈii",
+    settingsSaved: "SetÄrile au fost salvate!",
+    platesSaved: "Datele vehiculului au fost salvate!",
+    searchPlaceholder: "IntroduceÈi denumirea...",
+    noResults: "Niciun rezultat",
+    km: "km",
+    min: "min",
+    h: "h",
+    confirmSending: "Se trimite confirmarea...",
+    confirmFailed: "Confirmare trimisÄ (offline log)",
+  },
+  en: {
+    plateHeader: "Vehicle Identification",
+    plateTitle: "Vehicle Details",
+    plateAutoLabel: "Vehicle registration plate",
+    plateTrailerLabel: "Trailer registration plate (optional)",
+    plateContinueText: "Continue",
+    searchHeader: "Select Destination",
+    dataSourceTitle: "Data Source",
+    searchTitle: "Search Destination",
+    manualTitle: "Manual Coordinates",
+    manualNameLabel: "Destination name",
+    manualGoBtnText: "Calculate route",
+    reloadText: "Reload list",
+    routeHeader: "Route Calculated",
+    routeDestLabel: "Destination",
+    routeDistLabel: "Distance",
+    routeTimeLabel: "Estimated time",
+    routeInfoBox: "Route calculated. Confirm to start navigation.",
+    startNavText: "Start Navigation",
+    backSearchText: "Back to search",
+    arrivalBtnText: "Arrived!",
+    settingsHeader: "Settings",
+    settingsUrlTitle: "URL Configuration",
+    csvUrlLabel: "Destinations list URL (CSV)",
+    csvUrlHint: "CSV format: name,lat,lng (first line = optional header)",
+    overlayUrlLabel: "Map overlay tile URL (optional)",
+    overlayUrlHint: "URL template for custom tiles (optional)",
+    geojsonUrlLabel: "GeoJSON overlay URL (optional)",
+    geojsonUrlHint: "Additional GeoJSON vector layer (optional)",
+    confirmUrlLabel: "Arrival confirmation URL",
+    confirmUrlHint: "POST with: destination, lat, lng, plate_auto, plate_trailer, timestamp",
+    osrmUrlLabel: "OSRM routing server URL",
+    osrmUrlHint: "OSRM server for route calculation",
+    saveSettingsText: "Save Settings",
+    settingsVehicleTitle: "Vehicle",
+    settingsAutoLabel: "Vehicle plate",
+    settingsTrailerLabel: "Trailer plate",
+    savePlatesText: "Save vehicle",
+    arrivalModalTitle: "Have you arrived at the destination?",
+    arrivalModalText: "Confirm that you have arrived. Confirmation will be sent automatically.",
+    confirmArrivalText: "Confirm â I've Arrived!",
+    cancelArrivalText: "Not yet, continue",
+    arrivedSentTitle: "Confirmation Sent!",
+    arrivedSentText: "Arrival has been confirmed and transmitted successfully.",
+    finishRouteBtnText: "New Destination",
+    loadingCSV: "Downloading destinations list...",
+    loadingRoute: "Calculating route...",
+    loadingConfirm: "Sending confirmation...",
+    errNoDest: "Please select or enter a destination.",
+    errNoPlate: "Please enter the vehicle registration plate.",
+    errNoRoute: "Could not calculate route. Check your connection.",
+    errNoCSV: "Could not download list. Check URL in settings.",
+    csvOK: "List loaded",
+    csvErr: "CSV Error",
+    csvNone: "No URL configured",
+    destCount: "destinations",
+    settingsSaved: "Settings saved!",
+    platesSaved: "Vehicle data saved!",
+    searchPlaceholder: "Enter name...",
+    noResults: "No results",
+    km: "km",
+    min: "min",
+    h: "h",
+    confirmSending: "Sending confirmation...",
+    confirmFailed: "Confirmation sent (offline log)",
+  },
+  fr: {
+    plateHeader: "Identification du vÃ©hicule",
+    plateTitle: "DonnÃ©es du vÃ©hicule",
+    plateAutoLabel: "Plaque d'immatriculation du vÃ©hicule",
+    plateTrailerLabel: "Plaque de la remorque (optionnel)",
+    plateContinueText: "Continuer",
+    searchHeader: "SÃ©lectionner une destination",
+    dataSourceTitle: "Source de donnÃ©es",
+    searchTitle: "Rechercher une destination",
+    manualTitle: "CoordonnÃ©es manuelles",
+    manualNameLabel: "Nom de la destination",
+    manualGoBtnText: "Calculer l'itinÃ©raire",
+    reloadText: "Recharger la liste",
+    routeHeader: "ItinÃ©raire calculÃ©",
+    routeDestLabel: "Destination",
+    routeDistLabel: "Distance",
+    routeTimeLabel: "DurÃ©e estimÃ©e",
+    routeInfoBox: "ItinÃ©raire calculÃ©. Confirmez pour dÃ©marrer la navigation.",
+    startNavText: "DÃ©marrer la navigation",
+    backSearchText: "Retour Ã  la recherche",
+    arrivalBtnText: "Je suis arrivÃ©!",
+    settingsHeader: "ParamÃ¨tres",
+    settingsUrlTitle: "Configuration des URL",
+    csvUrlLabel: "URL liste destinations (CSV)",
+    csvUrlHint: "Format CSV: name,lat,lng (premiÃ¨re ligne = en-tÃªte optionnel)",
+    overlayUrlLabel: "URL tuiles overlay carte (optionnel)",
+    overlayUrlHint: "Template URL pour tuiles personnalisÃ©es (optionnel)",
+    geojsonUrlLabel: "URL overlay GeoJSON (optionnel)",
+    geojsonUrlHint: "Couche vectorielle GeoJSON supplÃ©mentaire (optionnel)",
+    confirmUrlLabel: "URL confirmation d'arrivÃ©e",
+    confirmUrlHint: "POST avec: destination, lat, lng, plate_auto, plate_trailer, timestamp",
+    osrmUrlLabel: "URL serveur de routage OSRM",
+    osrmUrlHint: "Serveur OSRM pour le calcul d'itinÃ©raires",
+    saveSettingsText: "Enregistrer les paramÃ¨tres",
+    settingsVehicleTitle: "VÃ©hicule",
+    settingsAutoLabel: "Plaque du vÃ©hicule",
+    settingsTrailerLabel: "Plaque de la remorque",
+    savePlatesText: "Enregistrer le vÃ©hicule",
+    arrivalModalTitle: "Ãtes-vous arrivÃ© Ã  destination?",
+    arrivalModalText: "Confirmez votre arrivÃ©e. La confirmation sera transmise automatiquement.",
+    confirmArrivalText: "Confirmer â Je suis arrivÃ©!",
+    cancelArrivalText: "Pas encore, continuer",
+    arrivedSentTitle: "Confirmation envoyÃ©e!",
+    arrivedSentText: "L'arrivÃ©e a Ã©tÃ© confirmÃ©e et transmise avec succÃ¨s.",
+    finishRouteBtnText: "Nouvelle destination",
+    loadingCSV: "TÃ©lÃ©chargement de la liste...",
+    loadingRoute: "Calcul de l'itinÃ©raire...",
+    loadingConfirm: "Envoi de la confirmation...",
+    errNoDest: "Veuillez sÃ©lectionner ou saisir une destination.",
+    errNoPlate: "Veuillez saisir la plaque d'immatriculation du vÃ©hicule.",
+    errNoRoute: "Impossible de calculer l'itinÃ©raire. VÃ©rifiez la connexion.",
+    errNoCSV: "Impossible de tÃ©lÃ©charger la liste. VÃ©rifiez l'URL dans les paramÃ¨tres.",
+    csvOK: "Liste chargÃ©e",
+    csvErr: "Erreur CSV",
+    csvNone: "Aucune URL configurÃ©e",
+    destCount: "destinations",
+    settingsSaved: "ParamÃ¨tres enregistrÃ©s!",
+    platesSaved: "DonnÃ©es du vÃ©hicule enregistrÃ©es!",
+    searchPlaceholder: "Saisir le nom...",
+    noResults: "Aucun rÃ©sultat",
+    km: "km",
+    min: "min",
+    h: "h",
+    confirmSending: "Envoi de la confirmation...",
+    confirmFailed: "Confirmation envoyÃ©e (journal hors ligne)",
+  }
+};
+
+// ================================================================
+// APP STATE
+// ================================================================
+let lang = 'ro';
+let destinations = [];
+let selectedDest = null;
+let currentRoute = null;
+let map = null;
+let previewMap = null;
+let routeLayer = null;
+let previewRouteLayer = null;
+let userMarker = null;
+let destMarker = null;
+let watchId = null;
+let settings = {
+  csvUrl: '',
+  overlayTileUrl: '',
+  geojsonUrl: '',
+  confirmUrl: '',
+  osrmUrl: 'https://router.project-osrm.org'
+};
+let plateAuto = '';
+let plateTrailer = '';
+let overlayLayer = null;
+let geojsonLayer = null;
+
+// ================================================================
+// STORAGE
+// ================================================================
+function save(key, val) {
+  try { localStorage.setItem('navro_' + key, JSON.stringify(val)); } catch(e) {}
+}
+function load(key, def) {
+  try {
+    const v = localStorage.getItem('navro_' + key);
+    return v !== null ? JSON.parse(v) : def;
+  } catch(e) { return def; }
+}
+
+// ================================================================
+// INIT
+// ================================================================
+window.addEventListener('DOMContentLoaded', () => {
+  lang = load('lang', null);
+  settings = load('settings', settings);
+  plateAuto = load('plateAuto', '');
+  plateTrailer = load('plateTrailer', '');
+
+  // Check URL deep-link
+  const urlDest = getDestFromURL();
+
+  if (!lang) {
+    showScreen('langScreen');
+    return;
+  }
+
+  applyLang();
+
+  if (!plateAuto) {
+    showScreen('plateScreen');
+    return;
+  }
+
+  // Go to search + load CSV
+  showScreen('searchScreen');
+  updateVehicleBadges();
+  loadCSV().then(() => {
+    if (urlDest) {
+      setTimeout(() => navigateToExternal(urlDest), 500);
+    }
+  });
+});
+
+// ================================================================
+// URL DEEP-LINK
+// ================================================================
+function getDestFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const name = params.get('dest') || params.get('destination');
+  const lat = parseFloat(params.get('lat'));
+  const lng = parseFloat(params.get('lng'));
+  if (name && !isNaN(lat) && !isNaN(lng)) {
+    return { name, lat, lng };
+  }
+  return null;
+}
+
+function navigateToExternal(dest) {
+  selectedDest = dest;
+  calculateAndShowRoute();
+}
+
+// Handle Capacitor deep links
+document.addEventListener('navro-deeplink', (e) => {
+  const { dest, lat, lng } = e.detail || {};
+  if (dest && lat && lng) navigateToExternal({ name: dest, lat: parseFloat(lat), lng: parseFloat(lng) });
+});
+
+// ================================================================
+// LANGUAGE
+// ================================================================
+function setLanguage(l) {
+  lang = l;
+  save('lang', l);
+  applyLang();
+  if (!plateAuto) {
+    showScreen('plateScreen');
+  } else {
+    showScreen('searchScreen');
+    updateVehicleBadges();
+    loadCSV();
+  }
+}
+
+function goToLang() {
+  showScreen('langScreen');
+}
+
+function applyLang() {
+  const t = T[lang] || T.ro;
+  document.documentElement.lang = lang;
+  // Apply all text IDs
+  Object.keys(t).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.textContent = t[k];
+  });
+  // Placeholder for search
+  const si = document.getElementById('searchInput');
+  if (si) si.placeholder = t.searchPlaceholder;
+}
+
+function t(key) {
+  return (T[lang] || T.ro)[key] || key;
+}
+
+// ================================================================
+// SCREENS
+// ================================================================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  const sc = document.getElementById(id);
+  if (sc) sc.classList.remove('hidden');
+  applyLang();
+}
+
+// ================================================================
+// PLATES
+// ================================================================
+function savePlates() {
+  const pa = document.getElementById('plateAuto').value.trim().toUpperCase();
+  if (!pa) { showToast(t('errNoPlate')); return; }
+  plateAuto = pa;
+  plateTrailer = document.getElementById('plateTrailer').value.trim().toUpperCase();
+  save('plateAuto', plateAuto);
+  save('plateTrailer', plateTrailer);
+  showScreen('searchScreen');
+  updateVehicleBadges();
+  loadCSV();
+}
+
+function savePlatesFromSettings() {
+  const pa = document.getElementById('settingsPlateAuto').value.trim().toUpperCase();
+  if (!pa) { showToast(t('errNoPlate')); return; }
+  plateAuto = pa;
+  plateTrailer = document.getElementById('settingsPlateTrailer').value.trim().toUpperCase();
+  save('plateAuto', plateAuto);
+  save('plateTrailer', plateTrailer);
+  showToast(t('platesSaved'));
+  updateVehicleBadges();
+}
+
+function updateVehicleBadges() {
+  const el = document.getElementById('vehicleBadges');
+  if (!el) return;
+  let html = `<span class="badge badge-info"><i class="fa fa-car"></i> ${plateAuto || 'â'}</span>`;
+  if (plateTrailer) html += `<span class="badge badge-info"><i class="fa fa-truck"></i> ${plateTrailer}</span>`;
+  el.innerHTML = html;
+}
+
+// ================================================================
+// SETTINGS
+// ================================================================
+function goToSettings() {
+  document.getElementById('csvUrl').value = settings.csvUrl || '';
+  document.getElementById('overlayTileUrl').value = settings.overlayTileUrl || '';
+  document.getElementById('geojsonUrl').value = settings.geojsonUrl || '';
+  document.getElementById('confirmUrl').value = settings.confirmUrl || '';
+  document.getElementById('osrmUrl').value = settings.osrmUrl || 'https://router.project-osrm.org';
+  document.getElementById('settingsPlateAuto').value = plateAuto || '';
+  document.getElementById('settingsPlateTrailer').value = plateTrailer || '';
+  showScreen('settingsScreen');
+}
+
+function saveSettings() {
+  settings.csvUrl = document.getElementById('csvUrl').value.trim();
+  settings.overlayTileUrl = document.getElementById('overlayTileUrl').value.trim();
+  settings.geojsonUrl = document.getElementById('geojsonUrl').value.trim();
+  settings.confirmUrl = document.getElementById('confirmUrl').value.trim();
+  settings.osrmUrl = document.getElementById('osrmUrl').value.trim() || 'https://router.project-osrm.org';
+  save('settings', settings);
+  showToast(t('settingsSaved'));
+  showScreen('searchScreen');
+  loadCSV();
+}
+
+// ================================================================
+// CSV LOADING
+// ================================================================
+async function loadCSV() {
+  const statusEl = document.getElementById('csvStatusBadge');
+  if (!settings.csvUrl) {
+    if (statusEl) statusEl.innerHTML = `<span class="badge badge-warn"><i class="fa fa-warning"></i> ${t('csvNone')}</span>`;
+    return;
+  }
+  showLoading(t('loadingCSV'));
+  try {
+    // Use a CORS proxy if needed â try direct first
+    let url = settings.csvUrl;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    destinations = parseCSV(text);
+    if (statusEl) statusEl.innerHTML = `<span class="badge badge-ok"><i class="fa fa-check"></i> ${t('csvOK')} â ${destinations.length} ${t('destCount')}</span>`;
+    hideLoading();
+  } catch(e) {
+    destinations = [];
+    if (statusEl) statusEl.innerHTML = `<span class="badge badge-err"><i class="fa fa-times"></i> ${t('csvErr')}: ${e.message}</span>`;
+    hideLoading();
+    showToast(t('errNoCSV'));
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  const results = [];
+  let startIdx = 0;
+  // Skip header if first line has no numbers
+  if (lines.length > 0) {
+    const parts0 = lines[0].split(',');
+    if (parts0.length >= 3 && isNaN(parseFloat(parts0[1]))) startIdx = 1;
+  }
+  for (let i = startIdx; i < lines.length; i++) {
+    const parts = lines[i].split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+    if (parts.length >= 3) {
+      const lat = parseFloat(parts[1]);
+      const lng = parseFloat(parts[2]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        results.push({ name: parts[0], lat, lng });
+      }
+    }
+  }
+  return results;
+}
+
+function reloadCSV() { loadCSV(); }
+
+// ================================================================
+// SEARCH / FILTER
+// ================================================================
+function filterDestinations(query) {
+  const listEl = document.getElementById('destinationList');
+  if (!query || query.length < 1) {
+    listEl.classList.remove('visible');
+    listEl.innerHTML = '';
+    return;
+  }
+  const q = query.toLowerCase();
+  const filtered = destinations.filter(d => d.name.toLowerCase().includes(q)).slice(0, 30);
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div class="no-results">${t('noResults')}</div>`;
+  } else {
+    listEl.innerHTML = filtered.map(d =>
+      `<div class="dest-item" onclick="selectDestination(${JSON.stringify(d).replace(/"/g, '&quot;')})">
+        <i class="fa fa-map-marker-alt dest-icon"></i>
+        <div>
+          <div class="dest-name">${escHtml(d.name)}</div>
+          <div class="dest-coords">${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}</div>
+        </div>
+      </div>`
+    ).join('');
+  }
+  listEl.classList.add('visible');
+}
+
+function selectDestination(dest) {
+  selectedDest = dest;
+  document.getElementById('searchInput').value = dest.name;
+  document.getElementById('destinationList').classList.remove('visible');
+  document.getElementById('destinationList').innerHTML = '';
+  calculateAndShowRoute();
+}
+
+function useManualCoords() {
+  const name = document.getElementById('manualName').value.trim() || 'DestinaÈie';
+  const lat = parseFloat(document.getElementById('manualLat').value);
+  const lng = parseFloat(document.getElementById('manualLng').value);
+  if (isNaN(lat) || isNaN(lng)) { showToast(t('errNoDest')); return; }
+  selectedDest = { name, lat, lng };
+  calculateAndShowRoute();
+}
+
+// ================================================================
+// ROUTING (OSRM)
+// ================================================================
+async function calculateAndShowRoute() {
+  if (!selectedDest) { showToast(t('errNoDest')); return; }
+  showLoading(t('loadingRoute'));
+
+  // Try to get user location
+  let startLat, startLng;
+  try {
+    const pos = await getCurrentPosition();
+    startLat = pos.coords.latitude;
+    startLng = pos.coords.longitude;
+  } catch(e) {
+    // Fallback: use center of Romania
+    startLat = 44.4268; startLng = 26.1025;
+  }
+
+  const osrm = (settings.osrmUrl || 'https://router.project-osrm.org').replace(/\/$/, '');
+  const url = `${osrm}/route/v1/driving/${startLng},${startLat};${selectedDest.lng},${selectedDest.lat}?overview=full&geometries=geojson&steps=true`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('OSRM ' + res.status);
+    const data = await res.json();
+    if (!data.routes || !data.routes.length) throw new Error('No routes');
+
+    currentRoute = {
+      geojson: data.routes[0].geometry,
+      distance: data.routes[0].distance,
+      duration: data.routes[0].duration,
+      startLat, startLng,
+      dest: selectedDest
+    };
+
+    hideLoading();
+    showRoutePreview();
+  } catch(e) {
+    hideLoading();
+    // Fallback: draw straight line
+    currentRoute = {
+      geojson: {
+        type: 'LineString',
+        coordinates: [[startLng, startLat], [selectedDest.lng, selectedDest.lat]]
+      },
+      distance: haversine(startLat, startLng, selectedDest.lat, selectedDest.lng),
+      duration: null,
+      startLat, startLng,
+      dest: selectedDest
+    };
+    showRoutePreview();
+    showToast(t('errNoRoute'));
+  }
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ================================================================
+// ROUTE PREVIEW
+// ================================================================
+function showRoutePreview() {
+  showScreen('routeScreen');
+  document.getElementById('routeDestName').textContent = currentRoute.dest.name;
+
+  const dist = currentRoute.distance;
+  document.getElementById('routeDistance').textContent = dist >= 1000
+    ? (dist/1000).toFixed(1) + ' ' + t('km')
+    : Math.round(dist) + ' m';
+
+  if (currentRoute.duration) {
+    const dur = currentRoute.duration;
+    document.getElementById('routeDuration').textContent = dur >= 3600
+      ? Math.floor(dur/3600) + t('h') + ' ' + Math.round((dur%3600)/60) + t('min')
+      : Math.round(dur/60) + ' ' + t('min');
+  } else {
+    document.getElementById('routeDuration').textContent = 'â';
+  }
+
+  // Init preview map
+  setTimeout(() => {
+    if (previewMap) {
+      previewMap.remove();
+      previewMap = null;
+    }
+    previewMap = L.map('previewMap', { zoomControl: true, attributionControl: false });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Â© OpenStreetMap', maxZoom: 18
+    }).addTo(previewMap);
+
+    // Add custom overlay if configured
+    if (settings.overlayTileUrl) {
+      L.tileLayer(settings.overlayTileUrl, { opacity: 0.7, maxZoom: 18 }).addTo(previewMap);
+    }
+
+    const coords = currentRoute.geojson.coordinates.map(c => [c[1], c[0]]);
+    if (previewRouteLayer) previewMap.removeLayer(previewRouteLayer);
+    previewRouteLayer = L.polyline(coords, { color: '#1565C0', weight: 5, opacity: 0.8 }).addTo(previewMap);
+
+    L.marker([currentRoute.startLat, currentRoute.startLng], {
+      icon: L.divIcon({ className: '', html: '<div style="background:#4CAF50;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>', iconAnchor: [7,7] })
+    }).addTo(previewMap);
+
+    L.marker([currentRoute.dest.lat, currentRoute.dest.lng], {
+      icon: L.divIcon({ className: '', html: '<div style="background:#F44336;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>', iconAnchor: [7,7] })
+    }).addTo(previewMap);
+
+    previewMap.fitBounds(previewRouteLayer.getBounds(), { padding: [24, 24] });
+  }, 150);
+}
+
+function goToSearch() {
+  showScreen('searchScreen');
+  updateVehicleBadges();
+}
+
+// ================================================================
+// NAVIGATION
+// ================================================================
+function startNavigation() {
+  showScreen('mapScreen');
+  initNavMap();
+  document.getElementById('navDestName').textContent = currentRoute.dest.name;
+  const pa = document.getElementById('navPlate1');
+  const pt = document.getElementById('navPlate2');
+  if (pa) pa.textContent = 'ð ' + plateAuto;
+  if (pt) pt.textContent = plateTrailer ? 'ð ' + plateTrailer : '';
+  updateNavStats();
+  startGPS();
+}
+
+function initNavMap() {
+  if (map) { map.remove(); map = null; }
+  map = L.map('map', { zoomControl: false, attributionControl: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: 'Â© OpenStreetMap', maxZoom: 18
+  }).addTo(map);
+
+  if (settings.overlayTileUrl) {
+    if (overlayLayer) map.removeLayer(overlayLayer);
+    overlayLayer = L.tileLayer(settings.overlayTileUrl, { opacity: 0.7, maxZoom: 18 }).addTo(map);
+  }
+
+  if (settings.geojsonUrl) loadGeoJSON();
+
+  const coords = currentRoute.geojson.coordinates.map(c => [c[1], c[0]]);
+  routeLayer = L.polyline(coords, { color: '#1565C0', weight: 6, opacity: 0.85 }).addTo(map);
+
+  // Destination marker
+  destMarker = L.marker([currentRoute.dest.lat, currentRoute.dest.lng], {
+    icon: L.divIcon({ className: '', html: `<div style="background:#F44336;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4)">ð</div>`, iconAnchor: [16,16] })
+  }).addTo(map).bindPopup(currentRoute.dest.name);
+
+  map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+}
+
+async function loadGeoJSON() {
+  try {
+    const res = await fetch(settings.geojsonUrl);
+    const gj = await res.json();
+    if (geojsonLayer) map.removeLayer(geojsonLayer);
+    geojsonLayer = L.geoJSON(gj, {
+      style: { color: '#FF6F00', weight: 2, opacity: 0.7 },
+      pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 6, fillColor: '#FF6F00', color: '#fff', weight: 2, fillOpacity: 0.9 })
+    }).addTo(map);
+  } catch(e) { console.warn('GeoJSON load failed:', e); }
+}
+
+function startGPS() {
+  if (!navigator.geolocation) return;
+  watchId = navigator.geolocation.watchPosition(
+    pos => updateUserPosition(pos.coords.latitude, pos.coords.longitude),
+    err => console.warn('GPS error', err),
+    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+  );
+}
+
+function updateUserPosition(lat, lng) {
+  if (!map) return;
+  const ll = [lat, lng];
+  if (!userMarker) {
+    userMarker = L.marker(ll, {
+      icon: L.divIcon({ className: '', html: '<div style="background:#1565C0;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5)">ð</div>', iconAnchor: [14,14] })
+    }).addTo(map);
+  } else {
+    userMarker.setLatLng(ll);
+  }
+
+  // Update distance remaining
+  const remDist = haversine(lat, lng, currentRoute.dest.lat, currentRoute.dest.lng);
+  currentRoute.remainingDist = remDist;
+  updateNavStats();
+
+  // Check arrival (< 50m)
+  if (remDist < 50) {
+    showArrivalConfirm();
+  }
+}
+
+function updateNavStats() {
+  const el = document.getElementById('navStats');
+  if (!el) return;
+  const dist = currentRoute.remainingDist || currentRoute.distance;
+  let distStr = dist >= 1000 ? (dist/1000).toFixed(1) + ' ' + t('km') : Math.round(dist) + ' m';
+  let durStr = '';
+  if (currentRoute.duration) {
+    const d = currentRoute.duration;
+    durStr = ' Â· ' + (d >= 3600 ? Math.floor(d/3600) + t('h') + ' ' + Math.round((d%3600)/60) + t('min') : Math.round(d/60) + ' ' + t('min'));
+  }
+  el.textContent = distStr + durStr;
+}
+
+function recenterMap() {
+  if (!map || !userMarker) return;
+  map.setView(userMarker.getLatLng(), 15);
+}
+
+function stopNavigation() {
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  goToSearch();
+}
+
+// ================================================================
+// ARRIVAL
+// ====================================================================================================
+function showArrivalConfirm() {
+  const modal = document.getElementById('arrivalModal');
+  modal.classList.remove('hidden');
+  const dest = currentRoute ? currentRoute.dest : {};
+  document.getElementById('arrivalDestInfo').innerHTML = `
+    <strong>${escHtml(dest.name || 'â')}</strong><br>
+    <span style="color:var(--text-light)">${dest.lat?.toFixed(5)}, ${dest.lng?.toFixed(5)}</span><br>
+    <span>ð ${escHtml(plateAuto)}</span>${plateTrailer ? `&nbsp;&nbsp;<span>ð ${escHtml(plateTrailer)}</span>` : ''}
+  `;
+}
+
+function closeArrivalModal() {
+  document.getElementById('arrivalModal').classList.add('hidden');
+}
+
+async function confirmArrival() {
+  closeArrivalModal();
+  showLoading(t('confirmSending'));
+
+  const dest = currentRoute.dest;
+  const payload = {
+    destination: dest.name,
+    lat: dest.lat,
+    lng: dest.lng,
+    plate_auto: plateAuto,
+    plate_trailer: plateTrailer || '',
+    timestamp: new Date().toISOString(),
+    lang: lang
+  };
+
+  let sent = false;
+  if (settings.confirmUrl) {
+    try {
+      await fetch(settings.confirmUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(8000)
+      });
+      sent = true;
+    } catch(e) {
+      console.warn('Confirm send failed:', e);
+    }
+  }
+
+  hideLoading();
+
+  // Log locally
+  const log = load('arrivalLog', []);
+  log.push(payload);
+  save('arrivalLog', log.slice(-50));
+
+  // Show success modal
+  const sentModal = document.getElementById('arrivedSentModal');
+  sentModal.classList.remove('hidden');
+  document.getElementById('arrivedSentDetails').innerHTML = `
+    ð ${escHtml(dest.name)}<br>
+    ð ${escHtml(plateAuto)}${plateTrailer ? ' | ð ' + escHtml(plateTrailer) : ''}<br>
+    ð ${new Date().toLocaleString()}<br>
+    ${settings.confirmUrl ? 'â URL: ' + escHtml(settings.confirmUrl) : 'ð Salvat local'}
+  `;
+}
+
+function finishRoute() {
+  document.getElementById('arrivedSentModal').classList.add('hidden');
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  currentRoute = null;
+  selectedDest = null;
+  if (map) { map.remove(); map = null; }
+  document.getElementById('searchInput').value = '';
+  goToSearch();
+}
+
+// ================================================================
+// GEOLOCATION HELPER
+// ================================================================
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error('No geolocation')); return; }
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000 });
+  });
+}
+
+// ================================================================
+// UI HELPERS
+// ================================================================
+function showLoading(msg) {
+  document.getElementById('loadingText').textContent = msg || '...';
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ================================================================
+// CAPACITOR INTEGRATION
+// ================================================================
+// Deep link handling via Capacitor App plugin
+window.addEventListener('appUrlOpen', (event) => {
+  const url = event.detail ? event.detail.url : '';
+  if (!url) return;
+  try {
+    const u = new URL(url);
+    const name = u.searchParams.get('dest') || u.searchParams.get('destination');
+    const lat = parseFloat(u.searchParams.get('lat'));
+    const lng = parseFloat(u.searchParams.get('lng'));
+    if (name && !isNaN(lat) && !isNaN(lng)) {
+      selectedDest = { name, lat, lng };
+      calculateAndShowRoute();
+    }
+  } catch(e) {}
+});
+</script>
+</body>
+</html>
