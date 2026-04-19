@@ -39,7 +39,7 @@ jobs:
 
       - name: Generate NavRo app icon
         run: |
-          pip install Pillow --quiet
+          pip install Pillow numpy --quiet
           python3 resources/make_icon.py
 
       - name: Build Debug APK
