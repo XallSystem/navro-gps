@@ -997,7 +997,9 @@ async function calculateAndShowRoute() {
     startLat = pos.coords.latitude;
     startLng = pos.coords.longitude;
   } catch(e) {
-    startLat = 44.4268; startLng = 26.1025;
+    hideLoading();
+    showToast('Nu s-a putut obține poziția GPS. Activați localizarea și reîncercați.');
+    return;
   }
 
   const osrm = (settings.osrmUrl || 'https://router.project-osrm.org').replace(/\/$/, '');
@@ -1102,6 +1104,7 @@ function startNavigation() {
   if (pa) pa.textContent = '\uD83D\uDE97 ' + plateAuto;
   if (pt) pt.textContent = plateTrailer ? '\uD83D\uDE9B ' + plateTrailer : '';
   updateNavStats();
+  _acquireWakeLock();
   startGPS();
 }
 
@@ -1137,6 +1140,22 @@ async function loadGeoJSON() {
 }
 
 let _gpsHeading = null;
+
+// ── Wake Lock (prevent screen sleep during navigation) ─────────────────────
+let _wakeLock = null;
+async function _acquireWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      _wakeLock = await navigator.wakeLock.request('screen');
+      _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+    } catch(e) { console.warn('WakeLock error', e); }
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && _wakeLock === null) {
+    _acquireWakeLock();
+  }
+});
 function startGPS() {
   if (!navigator.geolocation) return;
   // Request compass heading via DeviceOrientation API
@@ -1163,8 +1182,11 @@ function startGPS() {
         ? pos.coords.heading : _gpsHeading;
       updateUserPosition(pos.coords.latitude, pos.coords.longitude, hdg);
     },
-    err => console.warn('GPS error', err),
-    { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+    err => {
+      console.warn('GPS error', err);
+      showToast('GPS indisponibil (' + (err.code === 1 ? 'permisiune refuzată' : err.code === 2 ? 'poziție nedisponibilă' : 'timeout') + ')');
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
   );
 }
 
@@ -1192,10 +1214,12 @@ function updateUserPosition(lat, lng, heading) {
   }
   // Auto-center map on user position
   map.panTo(ll, { animate: true, duration: 0.5 });
-  const remDist = haversine(lat, lng, currentRoute.dest.lat, currentRoute.dest.lng);
-  currentRoute.remainingDist = remDist;
-  updateNavStats();
-  if (remDist < 50) { showArrivalConfirm(); }
+  if (currentRoute && currentRoute.dest) {
+    const remDist = haversine(lat, lng, currentRoute.dest.lat, currentRoute.dest.lng);
+    currentRoute.remainingDist = remDist;
+    updateNavStats();
+    if (remDist < 50) { showArrivalConfirm(); }
+  }
 }
 function updateNavStats() {
   const el = document.getElementById('navStats');
@@ -1218,6 +1242,7 @@ function recenterMap() {
 function stopNavigation() {
   if (watchId) navigator.geolocation.clearWatch(watchId);
   watchId = null;
+  if (_wakeLock) { _wakeLock.release().catch(() => {}); _wakeLock = null; }
   goToSearch();
 }
 
