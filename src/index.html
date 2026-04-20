@@ -1218,8 +1218,14 @@ async function startGPS() {
         if (err) { errCb(err); return; }
         if (pos) posCb(pos);
       });
+      // Also fetch an immediate fix so the map centers right away
+      try {
+        const first = await G.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+        if (first) posCb(first);
+      } catch(_) {}
     } catch(e) { errCb(e); }
   } else if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(posCb, errCb, { enableHighAccuracy: true, timeout: 10000 });
     watchId = navigator.geolocation.watchPosition(
       posCb, errCb,
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
