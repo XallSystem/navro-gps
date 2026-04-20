@@ -998,7 +998,7 @@ async function calculateAndShowRoute() {
     startLng = pos.coords.longitude;
   } catch(e) {
     hideLoading();
-    showToast('Nu s-a putut obține poziția GPS. Activați localizarea și reîncercați.');
+    showToast('Nu s-a putut obÈine poziÈia GPS. ActivaÈi localizarea Èi reÃ®ncercaÈi.');
     return;
   }
 
@@ -1141,7 +1141,7 @@ async function loadGeoJSON() {
 
 let _gpsHeading = null;
 
-// ── Wake Lock (prevent screen sleep during navigation) ─────────────────────
+// ââ Wake Lock (prevent screen sleep during navigation) âââââââââââââââââââââ
 let _wakeLock = null;
 async function _acquireWakeLock() {
   if ('wakeLock' in navigator) {
@@ -1156,19 +1156,35 @@ document.addEventListener('visibilitychange', () => {
     _acquireWakeLock();
   }
 });
-function startGPS() {
-  if (!navigator.geolocation) return;
-  // Request compass heading via DeviceOrientation API
+
+// Geolocation: Capacitor plugin wrapper (triggers native Android permission prompt)
+function _capGeo() {
+  return (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation) ? window.Capacitor.Plugins.Geolocation : null;
+}
+async function _ensureLocationPermission() {
+  const G = _capGeo();
+  if (!G) return true;
+  try {
+    let perm = await G.checkPermissions();
+    if (perm && perm.location !== 'granted') {
+      perm = await G.requestPermissions({ permissions: ['location'] });
+    }
+    return perm && perm.location === 'granted';
+  } catch (e) {
+    console.warn('requestPermissions failed', e);
+    try { await G.requestPermissions(); return true; } catch(_) { return false; }
+  }
+}
+async function startGPS() {
   function _handleOrientation(e) {
     if (e.webkitCompassHeading != null) {
-      _gpsHeading = e.webkitCompassHeading; // iOS compass
+      _gpsHeading = e.webkitCompassHeading;
     } else if (e.alpha != null) {
-      _gpsHeading = (360 - e.alpha) % 360; // Android compass
+      _gpsHeading = (360 - e.alpha) % 360;
     }
   }
   if (typeof DeviceOrientationEvent !== 'undefined') {
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      // iOS 13+ requires explicit permission
       DeviceOrientationEvent.requestPermission()
         .then(p => { if (p === 'granted') window.addEventListener('deviceorientation', _handleOrientation, true); })
         .catch(() => {});
@@ -1176,18 +1192,39 @@ function startGPS() {
       window.addEventListener('deviceorientation', _handleOrientation, true);
     }
   }
-  watchId = navigator.geolocation.watchPosition(
-    pos => {
-      const hdg = (pos.coords.heading != null && !isNaN(pos.coords.heading))
-        ? pos.coords.heading : _gpsHeading;
-      updateUserPosition(pos.coords.latitude, pos.coords.longitude, hdg);
-    },
-    err => {
-      console.warn('GPS error', err);
-      showToast('GPS indisponibil (' + (err.code === 1 ? 'permisiune refuzată' : err.code === 2 ? 'poziție nedisponibilă' : 'timeout') + ')');
-    },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
-  );
+
+  const granted = await _ensureLocationPermission();
+  if (!granted) {
+    showToast('Permisiunea de localizare este necesara. Activati-o din setari.');
+    return;
+  }
+
+  const G = _capGeo();
+  const posCb = pos => {
+    const hdg = (pos.coords.heading != null && !isNaN(pos.coords.heading))
+      ? pos.coords.heading : _gpsHeading;
+    updateUserPosition(pos.coords.latitude, pos.coords.longitude, hdg);
+  };
+  const errCb = err => {
+    console.warn('GPS error', err);
+    const code = err && err.code;
+    const msg = code === 1 ? 'permisiune refuzata' : code === 2 ? 'pozitie nedisponibila' : (err && err.message) || 'timeout';
+    showToast('GPS indisponibil (' + msg + ')');
+  };
+
+  if (G) {
+    try {
+      watchId = await G.watchPosition({ enableHighAccuracy: true, timeout: 20000 }, (pos, err) => {
+        if (err) { errCb(err); return; }
+        if (pos) posCb(pos);
+      });
+    } catch(e) { errCb(e); }
+  } else if (navigator.geolocation) {
+    watchId = navigator.geolocation.watchPosition(
+      posCb, errCb,
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+    );
+  }
 }
 
 function _markerHtml(heading) {
@@ -1240,7 +1277,14 @@ function recenterMap() {
 }
 
 function stopNavigation() {
-  if (watchId) navigator.geolocation.clearWatch(watchId);
+  if (watchId != null) {
+    const G = _capGeo();
+    if (G && typeof watchId === 'string') {
+      G.clearWatch({ id: watchId }).catch(() => {});
+    } else if (navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchId);
+    }
+  }
   watchId = null;
   if (_wakeLock) { _wakeLock.release().catch(() => {}); _wakeLock = null; }
   goToSearch();
@@ -1315,10 +1359,13 @@ function finishRoute() {
 // ================================================================
 // GEOLOCATION
 // ================================================================
-function getCurrentPosition() {
+async function getCurrentPosition() {
+  await _ensureLocationPermission();
+  const G = _capGeo();
+  if (G) return await G.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) { reject(new Error('No geolocation')); return; }
-    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000 });
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 });
   });
 }
 
