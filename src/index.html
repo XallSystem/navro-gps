@@ -1140,6 +1140,8 @@ async function loadGeoJSON() {
 }
 
 let _gpsHeading = null;
+let _gpsPoll = null;
+let _gpsBusy = false;
 
 // ââ Wake Lock (prevent screen sleep during navigation) âââââââââââââââââââââ
 let _wakeLock = null;
@@ -1212,25 +1214,33 @@ async function startGPS() {
     showToast('GPS indisponibil (' + msg + ')');
   };
 
-  if (G) {
+  // Polling at fixed 1.5s interval (recomandat 1-2 s) - mai predictibil decat
+  // watchPosition, care emite cand vrea sistemul. Daca cererea anterioara nu
+  // s-a terminat, sarim peste tick-ul curent (no overlap).
+  const POLL_MS = 1500;
+  if (_gpsPoll) { clearInterval(_gpsPoll); _gpsPoll = null; }
+  _gpsBusy = false;
+
+  async function _pollOnce() {
+    if (_gpsBusy) return;
+    _gpsBusy = true;
     try {
-      watchId = await G.watchPosition({ enableHighAccuracy: true, timeout: 20000 }, (pos, err) => {
-        if (err) { errCb(err); return; }
-        if (pos) posCb(pos);
-      });
-      // Also fetch an immediate fix so the map centers right away
-      try {
-        const first = await G.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
-        if (first) posCb(first);
-      } catch(_) {}
-    } catch(e) { errCb(e); }
-  } else if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(posCb, errCb, { enableHighAccuracy: true, timeout: 10000 });
-    watchId = navigator.geolocation.watchPosition(
-      posCb, errCb,
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
-    );
+      let pos;
+      if (G) {
+        pos = await G.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000, maximumAge: 1000 });
+      } else if (navigator.geolocation) {
+        pos = await new Promise((res, rej) =>
+          navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 10000, maximumAge: 1000 })
+        );
+      }
+      if (pos) posCb(pos);
+    } catch (e) { errCb(e); }
+    finally { _gpsBusy = false; }
   }
+
+  // Immediate first fix, then poll every POLL_MS
+  await _pollOnce();
+  _gpsPoll = setInterval(_pollOnce, POLL_MS);
 }
 
 function _markerHtml(heading) {
@@ -1283,6 +1293,8 @@ function recenterMap() {
 }
 
 function stopNavigation() {
+  if (_gpsPoll) { clearInterval(_gpsPoll); _gpsPoll = null; }
+  _gpsBusy = false;
   if (watchId != null) {
     const G = _capGeo();
     if (G && typeof watchId === 'string') {
